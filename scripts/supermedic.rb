@@ -148,7 +148,9 @@ else
     if nick.length > 0
         patients = find_nicknamed[nick]
     else
-        patients << df.unit_find
+        unit = df.unit_find
+        unit = df.curview.unit unless unit
+        patients << unit
     end
     if not patients.empty? and patients[0]
         patients.each { |u|
