@@ -149,7 +149,12 @@ else
         patients = find_nicknamed[nick]
     else
         unit = df.unit_find
-        unit = df.curview.unit unless unit
+        if not unit
+            unit = df.curview.unit if df.curview.respond_to?(:unit)
+            if df.curview.kind_of?(DFHack::ViewscreenLayerOverallHealthst)
+                unit = unit[df.curview.layer_objects[0].cursor]
+            end
+        end
         patients << unit
     end
     if not patients.empty? and patients[0]
