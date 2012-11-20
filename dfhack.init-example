@@ -18,7 +18,7 @@ keybinding add Ctrl-Alt-S@dwarfmode/Default quicksave
 
 # gui/rename script
 keybinding add Ctrl-Shift-N gui/rename
-keybinding add Alt-Shift-P "gui/rename unit-profession"
+keybinding add Ctrl-Shift-T "gui/rename unit-profession"
 
 ##############################
 # Generic adv mode bindings  #
@@ -71,6 +71,18 @@ keybinding add Alt-A@dwarfmode/QueryBuilding/Some/SiegeEngine gui/siege-engine
 
 # military weapon auto-select
 keybinding add Ctrl-W@layer_military/Equip/Customize/View gui/choose-weapons
+
+# minecart Guide path
+keybinding add Alt-P@dwarfmode/Hauling/DefineStop/Cond/Guide gui/guide-path
+
+# workshop job details
+keybinding add Alt-A@dwarfmode/QueryBuilding/Some/Workshop/Job gui/workshop-job
+
+# workflow front-end
+keybinding add Alt-W@dwarfmode/QueryBuilding/Some/Workshop/Job gui/workflow
+
+# assign weapon racks to squads so that they can be used
+keybinding add P@dwarfmode/QueryBuilding/Some/Weaponrack gui/assign-rack
 
 ############################
 # UI and game logic tweaks #

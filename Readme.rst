@@ -88,6 +88,36 @@ Interactive commands like 'liquids' cannot be used as hotkeys.
 
 Most of the commands come from plugins. Those reside in 'hack/plugins/'.
 
+Patched binaries
+================
+
+On linux and OSX, users of patched binaries may have to find the relevant
+section in symbols.xml, and add a new line with the checksum of their
+executable::
+
+    <md5-hash value='????????????????????????????????'/>
+
+In order to find the correct value of the hash, look into stderr.log;
+DFHack prints an error there if it does not recognize the hash.
+
+DFHack includes a small stand-alone utility for applying and removing
+binary patches from the game executable. Use it from the regular operating
+system console:
+
+ * ``binpatch check "Dwarf Fortress.exe" patch.dif``
+
+   Checks and prints if the patch is currently applied.
+
+ * ``binpatch apply "Dwarf Fortress.exe" patch.dif``
+
+   Applies the patch, unless it is already applied or in conflict.
+
+ * ``binpatch remove "Dwarf Fortress.exe" patch.dif``
+
+   Removes the patch, unless it is already removed.
+
+The patches are expected to be encoded in text format used by IDA.
+
 =============================
 Something doesn't work, help!
 =============================
@@ -201,6 +231,8 @@ Controls speedydwarf and teledwarf. Speedydwarf makes dwarves move quickly and p
  * 'fastdwarf 1 1' enables both
  * 'fastdwarf 0' disables both
  * 'fastdwarf 1' enables speedydwarf and disables teledwarf
+ * 'fastdwarf 2 ...' sets a native debug flag in the game memory
+   that implements an even more aggressive version of speedydwarf.
 
 Game interface
 ==============
@@ -1040,6 +1072,67 @@ Subcommands that persist until disabled or DF quit:
 :military-color-assigned: Color squad candidates already assigned to other squads in brown/green
                           to make them stand out more in the list.
 
+fix-armory
+----------
+
+Enables a fix for storage of squad equipment in barracks.
+
+Specifically, it prevents your haulers from moving that equipment
+to stockpiles, and instead queues jobs to store it on weapon racks,
+armor stands, and in containers.
+
+.. note::
+
+  In order to actually be used, weapon racks have to be patched and
+  manually assigned to a squad. See documentation for ``gui/assign-rack``
+  below.
+
+  Also, the default capacity of armor stands is way too low, so check out
+  http://www.bay12games.com/dwarves/mantisbt/view.php?id=1445
+  for a patch addressing that too.
+
+Note that the buildings in the armory are used as follows:
+
+* Weapon racks (when patched) are used to store any assigned weapons.
+  Each rack belongs to a specific squad, and can store up to 5 weapons.
+
+* Armor stands belong to specific squad members and are used for
+  armor and shields. By default one stand can store one item of each
+  type (hence one boot or gauntlet); if patched, the limit is raised to 2,
+  which should be sufficient.
+
+* Cabinets are used to store assigned clothing for a specific squad member.
+  They are **never** used to store owned clothing.
+
+* Chests (boxes, etc) are used for a flask, backpack or quiver assigned
+  to the squad member. Due to a probable bug, food is dropped out of the
+  backpack when it is stored.
+
+.. warning::
+
+  Although armor stands, cabinets and chests properly belong only to one
+  squad member, the owner of the building used to create the barracks will
+  randomly use any containers inside the room. Thus, it is recommended to
+  always create the armory from a weapon rack.
+
+Contrary to the common misconception, all these uses are controlled by the
+*Individual Equipment* usage flag. The *Squad Equipment* flag is actually
+intended for ammo, but the game does even less in that area than for armor
+and weapons. This plugin implements the following rules almost from scratch:
+
+* Combat ammo is stored in chests inside rooms with Squad Equipment enabled.
+
+* If a chest is assigned to a squad member due to Individual Equipment also
+  being set, it is only used for that squad's ammo; otherwise, any squads
+  with Squad Equipment on the room will use all of the chests at random.
+
+* Training ammo is stored in chests inside archery ranges designated from
+  archery targets, and controlled by the same Train flag as archery training
+  itself. This is inspired by some defunct code for weapon racks.
+
+There are some minor traces in the game code to suggest that the first of
+these rules is intended by Toady; the rest are invented by this plugin.
+
 
 Mode switch and reclaim
 =======================
@@ -1182,6 +1275,9 @@ produce that kind of item are automatically suspended and resumed as the item
 amount goes above or below the limit. The gap specifies how much below the limit
 the amount has to drop before jobs are resumed; this is intended to reduce
 the frequency of jobs being toggled.
+
+Check out the ``gui/workflow`` script below for a simple front-end integrated
+in the game UI.
 
 
 Constraint examples
@@ -1632,16 +1728,18 @@ removebadthoughts
 This script remove negative thoughts from your dwarves. Very useful against
 tantrum spirals.
 
-With a selected unit in 'v' mode, will clear this unit's mind, otherwise
-clear all your fort's units minds.
+The script can target a single creature, when used with the ``him`` argument,
+or the whole fort population, with ``all``.
+
+To show every bad thought present without actually removing them, run the
+script with the ``-n`` or ``--dry-run`` argument. This can give a quick
+hint on what bothers your dwarves the most.
 
 Individual dwarf happiness may not increase right after this command is run,
 but in the short term your dwarves will get much more joyful.
-The thoughts are set to be very old, and the game will remove them soon when
-you unpause.
 
-With the optional ``-v`` parameter, the script will dump the negative thoughts
-it removed.
+Internals: the thoughts are set to be very old, so that the game remove them
+quickly after you unpause.
 
 
 slayrace
@@ -1650,7 +1748,7 @@ Kills any unit of a given race.
 
 With no argument, lists the available races.
 
-With the special argument 'him', targets only the selected creature.
+With the special argument ``him``, targets only the selected creature.
 
 Any non-dead non-caged unit of the specified race gets its ``blood_count``
 set to 0, which means immediate death at the next game tick. For creatures
@@ -1800,6 +1898,31 @@ Pressing ESC normally returns to the unit screen, but Shift-ESC would exit
 directly to the main dwarf mode screen.
 
 
+Search
+======
+
+The search plugin adds search to the Stocks, Trading and Unit List screens.
+
+Searching works the same way as the search option in "Move to Depot" does.
+You will see the Search option displayed on screen with a hotkey (usually 's').
+Pressing it lets you start typing a query and the relevant list will start
+filtering automatically.
+
+Pressing ENTER, ESC or the arrow keys will return you to browsing the now
+filtered list, which still functions as normal. You can clear the filter
+by either going back into search mode and backspacing to delete it, or
+pressing the "shifted" version of the search hotkey while browsing the
+list (e.g. if the hotkey is 's', then hitting 'shift-s' will clear any
+filter).
+
+Leaving any screen automatically clears the filter.
+
+In the Trade screen, the actual trade will always only act on items that
+are actually visible in the list; the same effect applies to the Trade
+Value numbers displayed by the screen. Because of this, pressing the 't'
+key while search is active clears the search instead of executing the trade.
+
+
 gui/liquids
 ===========
 
@@ -1862,6 +1985,102 @@ only that entry, and does it even if it is not 'individual choice'.
 
 Rationale: individual choice seems to be unreliable when there is a weapon shortage,
 and may lead to inappropriate weapons being selected.
+
+
+gui/guide-path
+==============
+
+Bind to a key, and activate in the Hauling menu with the cursor over a Guide order.
+
+The script displays the cached path that will be used by the order; the game
+computes it when the order is executed for the first time.
+
+
+gui/workshop-job
+================
+
+Bind to a key, and activate with a job selected in a workshop in the 'q' mode.
+
+The script shows a list of the input reagents of the selected job, and allows changing
+them like the ``job item-type`` and ``job item-material`` commands.
+
+Specifically, pressing the 'i' key pops up a dialog that lets you select an item
+type from a list. Pressing 'm', unless the item type does not allow a material,
+lets you choose a material.
+
+.. warning::
+
+  Due to the way input reagent matching works in DF, you must select an item type
+  if you select a material, or the material will be matched incorrectly in some cases.
+  If you press 'm' without choosing an item type, the script will auto-choose it
+  if there is only one valid choice, or pop up an error message box instead of the
+  material selection dialog.
+
+Note that both materials and item types presented in the dialogs are filtered
+by the job input flags, and even the selected item type for material selection,
+or material for item type selection. Many jobs would let you select only one
+input item type.
+
+For example, if you choose a *plant* input item type for your prepare meal job,
+it will only let you select cookable materials.
+
+If you choose a *barrel* item instead (meaning things stored in barrels, like
+drink or milk), it will let you select any material, since in this case the
+material is matched against the barrel itself. Then, if you select, say, iron,
+and then try to change the input item type, now it won't let you select *plant*;
+you have to unset the material first.
+
+
+gui/workflow
+============
+
+Bind to a key, and activate with a job selected in a workshop in the 'q' mode.
+
+This script provides a simple interface to constraints managed by the workflow
+plugin. When active, it displays a list of all constraints applicable to the
+current job, and their current status.
+
+A constraint specifies a certain range to be compared against either individual
+*item* or whole *stack* count, an item type and optionally a material. When the
+current count is below the lower bound of the range, the job is resumed; if it
+is above or equal to the top bound, it will be suspended. Within the range, the
+specific constraint has no effect on the job; others may still affect it.
+
+Pressing 'c' switches the current constraint between counting stacks or items.
+Pressing 'm' lets you input the range directly; 'e', 'r', 'd', 'f' adjust the
+bounds by 1, 5, or 25 depending on the direction and the 'c' setting (counting
+items and expanding the range each gives a 5x bonus).
+
+Pressing 'n' produces a list of possible outputs of this job as guessed by
+workflow, and lets you create a new constraint by just choosing one. If you
+don't see the choice you want in the list, it likely means you have to adjust
+the job material first using ``job item-material`` or ``gui/workshop-job``,
+as described in ``workflow`` documentation above. In this manner, this feature
+can be used for troubleshooting jobs that don't match the right constraints.
+
+
+gui/assign-rack
+===============
+
+Bind to a key, and activate when viewing a weapon rack in the 'q' mode.
+
+This script is part of a group of related fixes to make the armory storage
+work again. The existing issues are:
+
+* Weapon racks have to each be assigned to a specific squad, like with
+  beds/boxes/armor stands and individual squad members, but nothing in
+  the game does this. This issue is what this script addresses.
+
+* Even if assigned by the script, **the game will unassign the racks again without a binary patch**.
+  Check the comments for this bug to get it:
+  http://www.bay12games.com/dwarves/mantisbt/view.php?id=1445
+
+* Haulers still take equpment stored in the armory away to the stockpiles,
+  unless the ``fix-armory`` plugin above is used.
+
+The script interface simply lets you designate one of the squads that
+are assigned to the barracks/armory containing the selected stand as
+the intended user.
 
 
 =============

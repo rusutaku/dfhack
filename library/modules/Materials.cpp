@@ -190,6 +190,8 @@ bool MaterialInfo::find(const std::vector<std::string> &items)
     }
     else if (items.size() == 2)
     {
+        if (items[1] == "NONE" && findBuiltin(items[0]))
+            return true;
         if (findPlant(items[0], items[1]))
             return true;
         if (findCreature(items[0], items[1]))
@@ -210,7 +212,7 @@ bool MaterialInfo::findBuiltin(const std::string &token)
     }
 
     df::world_raws &raws = world->raws;
-    for (int i = 1; i < NUM_BUILTIN; i++)
+    for (int i = 0; i < NUM_BUILTIN; i++)
     {
         auto obj = raws.mat_table.builtin[i];
         if (obj && obj->id == token)
@@ -497,7 +499,7 @@ void MaterialInfo::getMatchBits(df::job_item_flags2 &ok, df::job_item_flags2 &ma
     TEST(fire_safe, material->heat.melting_point > 11000);
     TEST(magma_safe, material->heat.melting_point > 12000);
     TEST(deep_material, FLAG(inorganic, inorganic_flags::SPECIAL));
-    TEST(non_economic, inorganic && !(ui && ui->economic_stone[index]));
+    TEST(non_economic, !inorganic || !(ui && vector_get(ui->economic_stone, index)));
 
     TEST(plant, plant);
     TEST(silk, MAT_FLAG(SILK));

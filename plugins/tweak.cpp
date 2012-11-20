@@ -10,6 +10,7 @@
 #include "modules/Screen.h"
 #include "modules/Units.h"
 #include "modules/Items.h"
+#include "modules/Job.h"
 
 #include "MiscUtils.h"
 
@@ -34,7 +35,8 @@
 #include "df/ui_build_selector.h"
 #include "df/building_trapst.h"
 #include "df/item_actual.h"
-#include "df/item_liquipowder.h"
+#include "df/item_liquid_miscst.h"
+#include "df/item_powder_miscst.h"
 #include "df/item_barst.h"
 #include "df/item_threadst.h"
 #include "df/item_clothst.h"
@@ -46,6 +48,9 @@
 #include "df/viewscreen_layer_assigntradest.h"
 #include "df/viewscreen_tradegoodsst.h"
 #include "df/viewscreen_layer_militaryst.h"
+#include "df/squad_position.h"
+#include "df/job.h"
+#include "df/general_ref_building_holderst.h"
 
 #include <stdlib.h>
 
@@ -402,8 +407,8 @@ static void correct_dimension(df::item_actual *self, int32_t &delta, int32_t dim
     if (copy) copy->categorize(true);
 }
 
-struct dimension_lqp_hook : df::item_liquipowder {
-    typedef df::item_liquipowder interpose_base;
+struct dimension_liquid_hook : df::item_liquid_miscst {
+    typedef df::item_liquid_miscst interpose_base;
 
     DEFINE_VMETHOD_INTERPOSE(bool, subtractDimension, (int32_t delta))
     {
@@ -412,7 +417,19 @@ struct dimension_lqp_hook : df::item_liquipowder {
     }
 };
 
-IMPLEMENT_VMETHOD_INTERPOSE(dimension_lqp_hook, subtractDimension);
+IMPLEMENT_VMETHOD_INTERPOSE(dimension_liquid_hook, subtractDimension);
+
+struct dimension_powder_hook : df::item_powder_miscst {
+    typedef df::item_powder_miscst interpose_base;
+
+    DEFINE_VMETHOD_INTERPOSE(bool, subtractDimension, (int32_t delta))
+    {
+        correct_dimension(this, delta, dimension);
+        return INTERPOSE_NEXT(subtractDimension)(delta);
+    }
+};
+
+IMPLEMENT_VMETHOD_INTERPOSE(dimension_powder_hook, subtractDimension);
 
 struct dimension_bar_hook : df::item_barst {
     typedef df::item_barst interpose_base;
@@ -627,7 +644,7 @@ struct military_assign_hook : df::viewscreen_layer_militaryst {
             for (int y = y1, i = i1; i <= i2; i++, y++)
             {
                 auto unit = vector_get(positions.candidates, i);
-                if (!unit || unit->military.squad_index < 0)
+                if (!unit || unit->military.squad_id < 0)
                     continue;
 
                 for (int x = x1; x <= x2; x++)
@@ -795,7 +812,8 @@ static command_result tweak(color_ostream &out, vector <string> &parameters)
     }
     else if (cmd == "fix-dimensions")
     {
-        enable_hook(out, INTERPOSE_HOOK(dimension_lqp_hook, subtractDimension), parameters);
+        enable_hook(out, INTERPOSE_HOOK(dimension_liquid_hook, subtractDimension), parameters);
+        enable_hook(out, INTERPOSE_HOOK(dimension_powder_hook, subtractDimension), parameters);
         enable_hook(out, INTERPOSE_HOOK(dimension_bar_hook, subtractDimension), parameters);
         enable_hook(out, INTERPOSE_HOOK(dimension_thread_hook, subtractDimension), parameters);
         enable_hook(out, INTERPOSE_HOOK(dimension_cloth_hook, subtractDimension), parameters);

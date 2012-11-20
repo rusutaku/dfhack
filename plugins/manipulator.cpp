@@ -298,8 +298,12 @@ bool sortBySkill (const UnitInfo *d1, const UnitInfo *d2)
 {
     if (sort_skill != job_skill::NONE)
     {
-        df::unit_skill *s1 = binsearch_in_vector<df::unit_skill,df::enum_field<df::job_skill,int16_t>>(d1->unit->status.current_soul->skills, &df::unit_skill::id, sort_skill);
-        df::unit_skill *s2 = binsearch_in_vector<df::unit_skill,df::enum_field<df::job_skill,int16_t>>(d2->unit->status.current_soul->skills, &df::unit_skill::id, sort_skill);
+        if (!d1->unit->status.current_soul)
+            return !descending;
+        if (!d2->unit->status.current_soul)
+            return descending;
+        df::unit_skill *s1 = binsearch_in_vector<df::unit_skill,df::job_skill>(d1->unit->status.current_soul->skills, &df::unit_skill::id, sort_skill);
+        df::unit_skill *s2 = binsearch_in_vector<df::unit_skill,df::job_skill>(d2->unit->status.current_soul->skills, &df::unit_skill::id, sort_skill);
         int l1 = s1 ? s1->rating : 0;
         int l2 = s2 ? s2->rating : 0;
         int e1 = s1 ? s1->experience : 0;
@@ -443,8 +447,8 @@ void viewscreen_unitlaborsst::refreshNames()
         UnitInfo *cur = units[i];
         df::unit *unit = cur->unit;
 
-        cur->name = Translation::TranslateName(&unit->name, false);
-        cur->transname = Translation::TranslateName(&unit->name, true);
+        cur->name = Translation::TranslateName(Units::getVisibleName(unit), false);
+        cur->transname = Translation::TranslateName(Units::getVisibleName(unit), true);
         cur->profession = Units::getProfessionName(unit);
     }
     calcSize();
@@ -1030,7 +1034,9 @@ void viewscreen_unitlaborsst::render()
                 fg = 9;
             if (columns[col_offset].skill != job_skill::NONE)
             {
-                df::unit_skill *skill = binsearch_in_vector<df::unit_skill,df::enum_field<df::job_skill,int16_t>>(unit->status.current_soul->skills, &df::unit_skill::id, columns[col_offset].skill);
+                df::unit_skill *skill = NULL;
+                if (unit->status.current_soul)
+                    skill = binsearch_in_vector<df::unit_skill,df::job_skill>(unit->status.current_soul->skills, &df::unit_skill::id, columns[col_offset].skill);
                 if ((skill != NULL) && (skill->rating || skill->experience))
                 {
                     int level = skill->rating;
@@ -1061,18 +1067,22 @@ void viewscreen_unitlaborsst::render()
     if (cur != NULL)
     {
         df::unit *unit = cur->unit;
-        int x = 1;
-        Screen::paintString(Screen::Pen(' ', 15, 0), x, 3 + num_rows + 2, cur->transname);
+        int x = 1, y = 3 + num_rows + 2;
+        Screen::Pen white_pen(' ', 15, 0);
+
+        Screen::paintString(white_pen, x, y, (cur->unit && cur->unit->sex) ? "\x0b" : "\x0c");
+        x += 2;
+        Screen::paintString(white_pen, x, y, cur->transname);
         x += cur->transname.length();
 
         if (cur->transname.length())
         {
-            Screen::paintString(Screen::Pen(' ', 15, 0), x, 3 + num_rows + 2, ", ");
+            Screen::paintString(white_pen, x, y, ", ");
             x += 2;
         }
-        Screen::paintString(Screen::Pen(' ', 15, 0), x, 3 + num_rows + 2, cur->profession);
+        Screen::paintString(white_pen, x, y, cur->profession);
         x += cur->profession.length();
-        Screen::paintString(Screen::Pen(' ', 15, 0), x, 3 + num_rows + 2, ": ");
+        Screen::paintString(white_pen, x, y, ": ");
         x += 2;
 
         string str;
@@ -1086,7 +1096,9 @@ void viewscreen_unitlaborsst::render()
         }
         else
         {
-            df::unit_skill *skill = binsearch_in_vector<df::unit_skill,df::enum_field<df::job_skill,int16_t>>(unit->status.current_soul->skills, &df::unit_skill::id, columns[sel_column].skill);
+            df::unit_skill *skill = NULL;
+            if (unit->status.current_soul)
+                skill = binsearch_in_vector<df::unit_skill,df::job_skill>(unit->status.current_soul->skills, &df::unit_skill::id, columns[sel_column].skill);
             if (skill)
             {
                 int level = skill->rating;
@@ -1105,30 +1117,30 @@ void viewscreen_unitlaborsst::render()
     }
 
     int x = 2;
-    OutputString(10, x, gps->dimy - 3, "Enter"); // SELECT key
+    OutputString(10, x, gps->dimy - 3, Screen::getKeyDisplay(interface_key::SELECT));
     OutputString(canToggle ? 15 : 8, x, gps->dimy - 3, ": Toggle labor, ");
 
-    OutputString(10, x, gps->dimy - 3, "Shift+Enter"); // SELECT_ALL key
+    OutputString(10, x, gps->dimy - 3, Screen::getKeyDisplay(interface_key::SELECT_ALL));
     OutputString(canToggle ? 15 : 8, x, gps->dimy - 3, ": Toggle Group, ");
 
-    OutputString(10, x, gps->dimy - 3, "v"); // UNITJOB_VIEW key
+    OutputString(10, x, gps->dimy - 3, Screen::getKeyDisplay(interface_key::UNITJOB_VIEW));
     OutputString(15, x, gps->dimy - 3, ": ViewCre, ");
 
-    OutputString(10, x, gps->dimy - 3, "c"); // UNITJOB_ZOOM_CRE key
+    OutputString(10, x, gps->dimy - 3, Screen::getKeyDisplay(interface_key::UNITJOB_ZOOM_CRE));
     OutputString(15, x, gps->dimy - 3, ": Zoom-Cre");
 
     x = 2;
-    OutputString(10, x, gps->dimy - 2, "Esc"); // LEAVESCREEN key
+    OutputString(10, x, gps->dimy - 2, Screen::getKeyDisplay(interface_key::LEAVESCREEN));
     OutputString(15, x, gps->dimy - 2, ": Done, ");
 
-    OutputString(10, x, gps->dimy - 2, "+"); // SECONDSCROLL_DOWN key
-    OutputString(10, x, gps->dimy - 2, "-"); // SECONDSCROLL_UP key
+    OutputString(10, x, gps->dimy - 2, Screen::getKeyDisplay(interface_key::SECONDSCROLL_DOWN));
+    OutputString(10, x, gps->dimy - 2, Screen::getKeyDisplay(interface_key::SECONDSCROLL_UP));
     OutputString(15, x, gps->dimy - 2, ": Sort by Skill, ");
 
-    OutputString(10, x, gps->dimy - 2, "*"); // SECONDSCROLL_PAGEDOWN key
-    OutputString(10, x, gps->dimy - 2, "/"); // SECONDSCROLL_PAGEUP key
+    OutputString(10, x, gps->dimy - 2, Screen::getKeyDisplay(interface_key::SECONDSCROLL_PAGEDOWN));
+    OutputString(10, x, gps->dimy - 2, Screen::getKeyDisplay(interface_key::SECONDSCROLL_PAGEUP));
     OutputString(15, x, gps->dimy - 2, ": Sort by (");
-    OutputString(10, x, gps->dimy - 2, "Tab"); // CHANGETAB key
+    OutputString(10, x, gps->dimy - 2, Screen::getKeyDisplay(interface_key::CHANGETAB));
     OutputString(15, x, gps->dimy - 2, ") ");
     switch (altsort)
     {
@@ -1182,7 +1194,7 @@ struct unitlist_hook : df::viewscreen_unitlistst
         if (units[page].size())
         {
             int x = 2;
-            OutputString(12, x, gps->dimy - 2, "l"); // UNITVIEW_PRF_PROF key
+            OutputString(12, x, gps->dimy - 2, Screen::getKeyDisplay(interface_key::UNITVIEW_PRF_PROF));
             OutputString(15, x, gps->dimy - 2, ": Manage labors (DFHack)");
         }
     }
