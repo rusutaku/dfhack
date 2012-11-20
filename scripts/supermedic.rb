@@ -31,7 +31,9 @@ clear_wounds = lambda { |u, f|
 
 clear_requests = lambda { |u|
     return unless u.health
-    u.health.body_part_8 = Array.new(u.health.body_part_8.count) {0}
+    u.health.body_part_flags.each { |flags|
+        flags._whole = 0x0
+    }
     puts "cleared treatment requests."
 }
 
@@ -63,15 +65,14 @@ wakeup = lambda { |u, f|
     return unless u.job.current_job
     jobtype = u.job.current_job.job_type
     if f or jobtype == :Rest
-        u.job.current_job.job_type = :CleanSelf
+        u.job.current_job = nil
         u.counters.unconscious = 0
         puts "released from #{jobtype} job."
     end
 }
 
 rest = lambda { |u|
-    j = DFHack::Job.cpp_new
-    u.job.current_job = j
+    u.job.current_job = DFHack::Job.cpp_new
     u.job.current_job.job_type = :Rest
     puts "commanded Rest job."
 }
